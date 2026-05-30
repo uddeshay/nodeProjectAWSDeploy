@@ -1,0 +1,41 @@
+trigger:
+  - main
+
+variables:
+  imageRepository: 'backendbyme'
+  containerRegistry: '<your-acr-name>.azurecr.io'
+  dockerfilePath: 'Dockerfile'
+  tag: '$(Build.BuildId)'
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndPush
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: Docker@2
+            inputs:
+              containerRegistry: '<your-acr-service-connection>'
+              repository: $(imageRepository)
+              command: buildAndPush
+              dockerfile: $(dockerfilePath)
+              tags: $(tag)
+
+  - stage: Deploy
+    dependsOn: Build
+    jobs:
+      - job: DeployToContainerApp
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: '<your-azure-service-connection>'
+              scriptType: bash
+              scriptLocation: inlineScript
+              inlineScript: |
+                az containerapp update \
+                  --name backendbyme \
+                  --resource-group myResourceGroup \
+                  --image $(containerRegistry)/$(imageRepository):$(tag)
